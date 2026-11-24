@@ -1,0 +1,21 @@
+{
+  "name": "poruch",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@poruch/api",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
+    "db:push": "turbo run db:push",
+    "db:studio": "turbo run db:studio"
+  },
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=22"
+  }
+}

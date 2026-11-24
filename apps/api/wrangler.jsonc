@@ -1,0 +1,46 @@
+{
+  "name": "poruch-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "" // Set after: wrangler hyperdrive create poruch-db --connection-string="..."
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "" // Set after: wrangler kv namespace create poruch-kv
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "poruch-media"
+    }
+  ],
+
+  "queues": {
+    "producers": [
+      {
+        "binding": "NOTIFICATIONS_QUEUE",
+        "queue": "poruch-notifications"
+      }
+    ]
+  },
+
+  "vars": {
+    "ENVIRONMENT": "production",
+    "API_VERSION": "v1"
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  // CLERK_SECRET_KEY
+  // CLERK_PUBLISHABLE_KEY
+  // TURNSTILE_SECRET_KEY
+}

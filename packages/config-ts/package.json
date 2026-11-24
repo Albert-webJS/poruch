@@ -1,0 +1,5 @@
+{
+  "name": "@poruch/config-ts",
+  "private": true,
+  "files": ["tsconfig.base.json"]
+}

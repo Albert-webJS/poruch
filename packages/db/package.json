@@ -1,0 +1,27 @@
+{
+  "name": "@poruch/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.39.0",
+    "@neondatabase/serverless": "^0.10.0",
+    "@poruch/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@poruch/config-ts": "workspace:*",
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.7.0"
+  }
+}

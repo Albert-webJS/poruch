@@ -1,0 +1,36 @@
+{
+  "name": "poruch-notification-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "" // Same Hyperdrive as API
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "" // Same KV as API
+    }
+  ],
+
+  "queues": {
+    "consumers": [
+      {
+        "queue": "poruch-notifications",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "poruch-notifications-dlq"
+      }
+    ]
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  // TURBOSMS_TOKEN
+  // TURBOSMS_SENDER
+}

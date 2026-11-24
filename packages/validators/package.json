@@ -1,0 +1,24 @@
+{
+  "name": "@poruch/validators",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./providers": "./src/providers.ts",
+    "./bookings": "./src/bookings.ts",
+    "./services": "./src/services.ts",
+    "./schedule": "./src/schedule.ts",
+    "./common": "./src/common.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.0",
+    "@poruch/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@poruch/config-ts": "workspace:*",
+    "typescript": "^5.7.0"
+  }
+}
