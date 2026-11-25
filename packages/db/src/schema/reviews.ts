@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, integer, timestamp, boolean, index } from 'drizzle-orm/pg-core'
-import { providerProfiles } from './providers.js'
-import { bookingRequests, clientContacts } from './bookings.js'
+import { providerProfiles } from './providers'
+import { bookingRequests, clientContacts } from './bookings'
 
 export const reviews = pgTable(
   'reviews',

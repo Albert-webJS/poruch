@@ -1,5 +1,6 @@
 export type Bindings = {
-  HYPERDRIVE: Hyperdrive
+  HYPERDRIVE?: Hyperdrive
+  DATABASE_URL?: string
   KV: KVNamespace
   R2: R2Bucket
   NOTIFICATIONS_QUEUE: Queue

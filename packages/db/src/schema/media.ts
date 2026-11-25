@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, integer, timestamp, index } from 'drizzle-orm/pg-core'
-import { providerProfiles } from './providers.js'
+import { providerProfiles } from './providers'
 
 export const mediaAssets = pgTable(
   'media_assets',

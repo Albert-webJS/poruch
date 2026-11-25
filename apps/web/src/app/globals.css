@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Ocean palette */
+  --color-ocean-900: #073B44;
+  --color-ocean-700: #0F766E;
+  --color-ocean-500: #14B8A6;
+  --color-ocean-300: #92E2DE;
+  --color-ocean-100: #E6F7F6;
+  --color-surface: #F8FAFC;
+
+  /* Semantic aliases */
+  --color-primary: #0F766E;
+  --color-primary-hover: #073B44;
+  --color-accent: #14B8A6;
+
+  /* Typography */
+  --font-sans: 'Manrope', 'Nunito Sans', Arial, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ocean-900);
+  background-color: var(--color-surface);
+}

@@ -1,12 +1,12 @@
 import { relations } from 'drizzle-orm'
-import { users } from './users.js'
-import { serviceCategories, cities, districts } from './categories.js'
-import { providerProfiles, providerServices, serviceAreas } from './providers.js'
-import { workingHours, availabilityExceptions } from './calendar.js'
-import { clientContacts, bookingRequests, bookingStatusHistory } from './bookings.js'
-import { reviews } from './reviews.js'
-import { mediaAssets } from './media.js'
-import { notifications } from './notifications.js'
+import { users } from './users'
+import { serviceCategories, cities, districts } from './categories'
+import { providerProfiles, providerServices, serviceAreas } from './providers'
+import { workingHours, availabilityExceptions } from './calendar'
+import { clientContacts, bookingRequests, bookingStatusHistory } from './bookings'
+import { reviews } from './reviews'
+import { mediaAssets } from './media'
+import { notifications } from './notifications'
 
 // === Users ===
 

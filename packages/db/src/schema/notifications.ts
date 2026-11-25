@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, jsonb, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core'
-import { bookingRequests } from './bookings.js'
-import { notificationChannelEnum, notificationStatusEnum } from './enums.js'
+import { bookingRequests } from './bookings'
+import { notificationChannelEnum, notificationStatusEnum } from './enums'
 
 export const notifications = pgTable(
   'notifications',

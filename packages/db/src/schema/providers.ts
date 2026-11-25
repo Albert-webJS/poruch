@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, text, boolean, integer, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core'
-import { users } from './users.js'
-import { serviceCategories, cities, districts } from './categories.js'
-import { providerStatusEnum, priceTypeEnum } from './enums.js'
+import { users } from './users'
+import { serviceCategories, cities, districts } from './categories'
+import { providerStatusEnum, priceTypeEnum } from './enums'
 
 export const providerProfiles = pgTable(
   'provider_profiles',

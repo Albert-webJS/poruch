@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
-import { providerProfiles, providerServices } from './providers.js'
-import { bookingStatusEnum } from './enums.js'
+import { providerProfiles, providerServices } from './providers'
+import { bookingStatusEnum } from './enums'
 
 export const clientContacts = pgTable(
   'client_contacts',

@@ -34,11 +34,13 @@ export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
 
   // Unexpected error
   console.error('Unhandled error:', err)
+  const isDev = c.env.ENVIRONMENT === 'development'
   return c.json(
     {
       error: {
         code: 'INTERNAL_ERROR',
         message: 'An unexpected error occurred',
+        ...(isDev && { debug: err instanceof Error ? err.message : String(err) }),
       },
     },
     500,

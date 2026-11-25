@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, integer, boolean, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core'
-import { providerProfiles } from './providers.js'
-import { exceptionTypeEnum } from './enums.js'
+import { providerProfiles } from './providers'
+import { exceptionTypeEnum } from './enums'
 
 export const workingHours = pgTable(
   'working_hours',
