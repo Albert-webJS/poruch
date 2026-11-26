@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { eq, and, isNull, asc } from 'drizzle-orm'
-import { providerProfiles, providerServices, serviceCategories } from '@poruch/db/schema'
+import { providerProfiles, providerServices, serviceCategories, cities } from '@poruch/db/schema'
 import type { AppEnv } from '../lib/bindings.js'
 import { getDb } from '../lib/db.js'
 import { success } from '../lib/response.js'
@@ -68,6 +68,7 @@ publicRoutes.get('/providers/:slug', async (c) => {
       createdAt: r.createdAt,
       providerReply: r.providerReply,
     })),
+    phone: profile.phone,
     acceptingBookings: true,
   })
 })
@@ -95,6 +96,91 @@ publicRoutes.get('/categories/:slug', async (c) => {
   if (!category) throw DomainError.notFound('Category not found')
 
   return success(c, category)
+})
+
+// GET /public/cities — list all cities
+publicRoutes.get('/cities', async (c) => {
+  const db = getDb(c)
+
+  const allCities = await db.query.cities.findMany({
+    orderBy: [asc(cities.nameUk)],
+  })
+
+  return success(c, allCities)
+})
+
+// GET /public/providers — list providers with filters
+publicRoutes.get('/providers', async (c) => {
+  const db = getDb(c)
+  const categorySlug = c.req.query('category')
+  const citySlug = c.req.query('city')
+
+  // Resolve slugs to IDs upfront to avoid subqueries and JS filtering
+  let categoryId: string | undefined
+  let cityId: string | undefined
+
+  if (categorySlug) {
+    const category = await db.query.serviceCategories.findFirst({
+      where: eq(serviceCategories.slug, categorySlug),
+      columns: { id: true },
+    })
+    if (!category) return success(c, [])
+    categoryId = category.id
+  }
+
+  if (citySlug) {
+    const city = await db.query.cities.findFirst({
+      where: eq(cities.slug, citySlug),
+      columns: { id: true },
+    })
+    if (!city) return success(c, [])
+    cityId = city.id
+  }
+
+  const conditions = [
+    eq(providerProfiles.status, 'published'),
+    isNull(providerProfiles.deletedAt),
+  ]
+  if (categoryId) conditions.push(eq(providerProfiles.categoryId, categoryId))
+  if (cityId) conditions.push(eq(providerProfiles.cityId, cityId))
+
+  const providers = await db.query.providerProfiles.findMany({
+    where: and(...conditions),
+    with: {
+      category: { columns: { nameUk: true } },
+      city: { columns: { nameUk: true } },
+      services: {
+        where: eq(providerServices.isActive, true),
+        columns: { priceAmount: true },
+        limit: 3,
+      },
+      reviews: {
+        where: (r, { eq }) => eq(r.isPublished, true),
+        columns: { rating: true },
+      },
+    },
+  })
+
+  const result = providers.map((p) => {
+    const ratings = p.reviews.map((r) => r.rating)
+    const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null
+    return {
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      photoUrl: p.photoUrl,
+      categoryName: p.category.nameUk,
+      cityName: p.city.nameUk,
+      rating: avgRating ? Math.round(avgRating * 10) / 10 : null,
+      reviewCount: ratings.length,
+      priceFrom: p.services.reduce((min, s) => {
+        if (s.priceAmount && (min === null || s.priceAmount < min)) return s.priceAmount
+        return min
+      }, null as number | null),
+    }
+  })
+
+  return success(c, result)
 })
 
 export default publicRoutes

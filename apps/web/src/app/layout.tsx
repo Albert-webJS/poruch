@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ukUA } from '@clerk/localizations'
+import Image from 'next/image'
+import Link from 'next/link'
+import { CitySelector } from '@/components/city-selector'
+import { api } from '@/lib/api'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -9,13 +13,16 @@ export const metadata: Metadata = {
     template: '%s | Poruch',
   },
   description: 'Маркетплейс локальних послуг. Електрики, сантехніки та інші майстри у вашому місті.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider localization={ukUA}>
       <html lang="uk">
-        <body className="min-h-screen flex flex-col">
+        <body className="min-h-screen flex flex-col bg-surface">
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
@@ -25,24 +32,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
 }
 
-function Header() {
+async function Header() {
+  let cities: { slug: string; nameUk: string }[] = []
+  try {
+    cities = await api.getCities()
+  } catch {
+    // API not available during build
+  }
+
   return (
-    <header className="border-b border-ocean-100 bg-white">
+    <header className="sticky top-0 z-50 border-b border-ocean-100 bg-white/95 backdrop-blur-sm">
       <div className="mx-auto max-w-6xl flex items-center justify-between px-4 h-16">
-        <a href="/" className="text-xl font-extrabold text-ocean-900 tracking-tight">
-          Poruch
-        </a>
-        <nav className="flex items-center gap-6 text-sm">
-          <a href="/services" className="text-ocean-700 hover:text-ocean-900 transition-colors">
-            Послуги
-          </a>
-          <a
+        <Link href="/" className="flex items-center gap-2 shrink-0">
+          <Image src="/logo.svg" alt="Poruch" width={120} height={32} priority />
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <CitySelector cities={cities} />
+          <Link
             href="/pro/dashboard"
-            className="bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors"
+            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             Я майстер
-          </a>
-        </nav>
+          </Link>
+        </div>
       </div>
     </header>
   )
@@ -54,9 +67,9 @@ function Footer() {
       <div className="mx-auto max-w-6xl px-4 flex items-center justify-between text-sm text-ocean-700">
         <span>&copy; {new Date().getFullYear()} Poruch</span>
         <nav className="flex gap-4">
-          <a href="/privacy" className="hover:text-ocean-900 transition-colors">
+          <Link href="/privacy" className="hover:text-ocean-900 transition-colors">
             Конфіденційність
-          </a>
+          </Link>
         </nav>
       </div>
     </footer>

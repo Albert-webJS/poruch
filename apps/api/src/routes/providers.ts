@@ -1,31 +1,29 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { eq, and, isNull } from 'drizzle-orm'
-import { providerProfiles, providerServices, users } from '@poruch/db/schema'
+import { providerProfiles, providerServices } from '@poruch/db/schema'
 import { UpdateProviderProfile, CreateProviderService, UpdateProviderService } from '@poruch/validators'
 import type { AppEnv } from '../lib/bindings.js'
 import { getDb } from '../lib/db.js'
 import { success } from '../lib/response.js'
 import { DomainError } from '../lib/errors.js'
 import { requireAuth } from '../middleware/auth.js'
-import { requireMaster } from '../middleware/rbac.js'
+import { requireMaster, resolveProvider } from '../middleware/rbac.js'
 
 const providers = new Hono<AppEnv>()
+
+// All routes require auth + master role + resolved provider
+providers.use('*', requireAuth, requireMaster, resolveProvider)
 
 // === Profile ===
 
 // GET /providers/me — get current provider's profile
-providers.get('/me', requireAuth, requireMaster, async (c) => {
+providers.get('/me', async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
-
-  const user = await db.query.users.findFirst({
-    where: eq(users.clerkId, userId),
-  })
-  if (!user) throw DomainError.notFound('User not found')
+  const providerId = c.get('providerId')!
 
   const profile = await db.query.providerProfiles.findFirst({
-    where: and(eq(providerProfiles.userId, user.id), isNull(providerProfiles.deletedAt)),
+    where: and(eq(providerProfiles.id, providerId), isNull(providerProfiles.deletedAt)),
     with: {
       category: true,
       city: true,
@@ -39,20 +37,15 @@ providers.get('/me', requireAuth, requireMaster, async (c) => {
 })
 
 // PATCH /providers/me — update profile
-providers.patch('/me', requireAuth, requireMaster, zValidator('json', UpdateProviderProfile), async (c) => {
+providers.patch('/me', zValidator('json', UpdateProviderProfile), async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const body = c.req.valid('json')
-
-  const user = await db.query.users.findFirst({
-    where: eq(users.clerkId, userId),
-  })
-  if (!user) throw DomainError.notFound('User not found')
 
   const [updated] = await db
     .update(providerProfiles)
     .set({ ...body, updatedAt: new Date() })
-    .where(and(eq(providerProfiles.userId, user.id), isNull(providerProfiles.deletedAt)))
+    .where(and(eq(providerProfiles.id, providerId), isNull(providerProfiles.deletedAt)))
     .returning()
 
   if (!updated) throw DomainError.notFound('Provider profile not found')
@@ -61,17 +54,12 @@ providers.patch('/me', requireAuth, requireMaster, zValidator('json', UpdateProv
 })
 
 // POST /providers/me/publish — publish profile
-providers.post('/me/publish', requireAuth, requireMaster, async (c) => {
+providers.post('/me/publish', async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
-
-  const user = await db.query.users.findFirst({
-    where: eq(users.clerkId, userId),
-  })
-  if (!user) throw DomainError.notFound('User not found')
+  const providerId = c.get('providerId')!
 
   const profile = await db.query.providerProfiles.findFirst({
-    where: and(eq(providerProfiles.userId, user.id), isNull(providerProfiles.deletedAt)),
+    where: and(eq(providerProfiles.id, providerId), isNull(providerProfiles.deletedAt)),
     with: { services: true },
   })
 
@@ -95,20 +83,12 @@ providers.post('/me/publish', requireAuth, requireMaster, async (c) => {
 // === Services ===
 
 // GET /providers/me/services
-providers.get('/me/services', requireAuth, requireMaster, async (c) => {
+providers.get('/me/services', async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
+  const providerId = c.get('providerId')!
 
   const services = await db.query.providerServices.findMany({
-    where: eq(providerServices.providerId, profile.id),
+    where: eq(providerServices.providerId, providerId),
     orderBy: (s, { asc }) => [asc(s.sortOrder)],
   })
 
@@ -116,20 +96,11 @@ providers.get('/me/services', requireAuth, requireMaster, async (c) => {
 })
 
 // POST /providers/me/services
-providers.post('/me/services', requireAuth, requireMaster, zValidator('json', CreateProviderService), async (c) => {
+providers.post('/me/services', zValidator('json', CreateProviderService), async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const body = c.req.valid('json')
 
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
-
-  // Validate price consistency
   if (body.priceType === 'on_request' && body.priceAmount !== null) {
     throw DomainError.validation('Price amount must be null for "on_request" price type')
   }
@@ -139,31 +110,23 @@ providers.post('/me/services', requireAuth, requireMaster, zValidator('json', Cr
 
   const [service] = await db
     .insert(providerServices)
-    .values({ ...body, providerId: profile.id })
+    .values({ ...body, providerId })
     .returning()
 
   return success(c, service, 201)
 })
 
 // PATCH /providers/me/services/:id
-providers.patch('/me/services/:id', requireAuth, requireMaster, zValidator('json', UpdateProviderService), async (c) => {
+providers.patch('/me/services/:id', zValidator('json', UpdateProviderService), async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const serviceId = c.req.param('id')
   const body = c.req.valid('json')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
 
   const [updated] = await db
     .update(providerServices)
     .set({ ...body, updatedAt: new Date() })
-    .where(and(eq(providerServices.id, serviceId), eq(providerServices.providerId, profile.id)))
+    .where(and(eq(providerServices.id, serviceId), eq(providerServices.providerId, providerId)))
     .returning()
 
   if (!updated) throw DomainError.notFound('Service not found')
@@ -172,23 +135,15 @@ providers.patch('/me/services/:id', requireAuth, requireMaster, zValidator('json
 })
 
 // DELETE /providers/me/services/:id (soft: set isActive=false)
-providers.delete('/me/services/:id', requireAuth, requireMaster, async (c) => {
+providers.delete('/me/services/:id', async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const serviceId = c.req.param('id')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
 
   const [deactivated] = await db
     .update(providerServices)
     .set({ isActive: false, updatedAt: new Date() })
-    .where(and(eq(providerServices.id, serviceId), eq(providerServices.providerId, profile.id)))
+    .where(and(eq(providerServices.id, serviceId), eq(providerServices.providerId, providerId)))
     .returning()
 
   if (!deactivated) throw DomainError.notFound('Service not found')

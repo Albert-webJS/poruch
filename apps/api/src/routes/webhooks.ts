@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
+import { Webhook } from 'svix'
 import { users, providerProfiles } from '@poruch/db/schema'
 import type { AppEnv } from '../lib/bindings.js'
 import { getDb } from '../lib/db.js'
@@ -8,7 +9,6 @@ const webhooks = new Hono<AppEnv>()
 
 // POST /webhooks/clerk — handle Clerk webhook events
 webhooks.post('/clerk', async (c) => {
-  // Verify webhook signature (svix)
   const svixId = c.req.header('svix-id')
   const svixTimestamp = c.req.header('svix-timestamp')
   const svixSignature = c.req.header('svix-signature')
@@ -17,22 +17,38 @@ webhooks.post('/clerk', async (c) => {
     return c.json({ error: 'Missing svix headers' }, 400)
   }
 
-  // TODO: verify HMAC signature with CLERK_WEBHOOK_SECRET
+  // Verify webhook signature
+  const webhookSecret = c.env.CLERK_WEBHOOK_SECRET
+  if (!webhookSecret) {
+    console.error('CLERK_WEBHOOK_SECRET is not configured')
+    return c.json({ error: 'Webhook not configured' }, 500)
+  }
 
-  const body = await c.req.json()
-  const { type, data } = body
+  const rawBody = await c.req.text()
+  let payload: { type: string; data: Record<string, any> }
 
+  try {
+    const wh = new Webhook(webhookSecret)
+    payload = wh.verify(rawBody, {
+      'svix-id': svixId,
+      'svix-timestamp': svixTimestamp,
+      'svix-signature': svixSignature,
+    }) as unknown as typeof payload
+  } catch {
+    return c.json({ error: 'Invalid signature' }, 401)
+  }
+
+  const { type, data } = payload
   const db = getDb(c)
 
   // Idempotency: check if already processed
-  const cached = await c.env.KV.get(`webhook:${svixId}`)
+  const cached = await c.env.KV?.get(`webhook:${svixId}`)
   if (cached) return c.json({ received: true })
 
   switch (type) {
     case 'user.created': {
       const role = data.public_metadata?.role ?? 'client'
 
-      // Create user record
       await db.insert(users).values({
         clerkId: data.id,
         email: data.email_addresses?.[0]?.email_address,
@@ -40,7 +56,6 @@ webhooks.post('/clerk', async (c) => {
         role,
       }).onConflictDoNothing()
 
-      // If master, create draft provider profile
       if (role === 'master') {
         const user = await db.query.users.findFirst({
           where: eq(users.clerkId, data.id),
@@ -53,8 +68,8 @@ webhooks.post('/clerk', async (c) => {
             userId: user.id,
             slug,
             name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || 'Новий майстер',
-            categoryId: '00000000-0000-0000-0000-000000000000', // placeholder, set during onboarding
-            cityId: '00000000-0000-0000-0000-000000000000', // placeholder
+            categoryId: '00000000-0000-0000-0000-000000000000',
+            cityId: '00000000-0000-0000-0000-000000000000',
             status: 'draft',
           }).onConflictDoNothing()
         }
@@ -76,7 +91,6 @@ webhooks.post('/clerk', async (c) => {
     }
 
     case 'user.deleted': {
-      // Soft delete: mark user and provider profile
       const user = await db.query.users.findFirst({
         where: eq(users.clerkId, data.id),
       })
@@ -91,7 +105,7 @@ webhooks.post('/clerk', async (c) => {
   }
 
   // Mark as processed
-  await c.env.KV.put(`webhook:${svixId}`, '1', { expirationTtl: 7 * 24 * 60 * 60 })
+  await c.env.KV?.put(`webhook:${svixId}`, '1', { expirationTtl: 7 * 24 * 60 * 60 })
 
   return c.json({ received: true })
 })
@@ -102,7 +116,7 @@ function generateSlug(firstName?: string, lastName?: string, id?: string): strin
     ж: 'zh', з: 'z', и: 'y', і: 'i', ї: 'yi', й: 'y', к: 'k', л: 'l',
     м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u',
     ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ю: 'yu',
-    я: 'ya', ь: '', "'": '',
+    я: 'ya', ь: '', "'": '', '\u2019': '', '\u02BC': '',
   }
 
   const name = `${firstName ?? ''}-${lastName ?? ''}`.toLowerCase().trim()

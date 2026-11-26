@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, jsonb, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, jsonb, timestamp, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { bookingRequests } from './bookings'
 import { notificationChannelEnum, notificationStatusEnum } from './enums'
 
@@ -14,7 +14,7 @@ export const notifications = pgTable(
     templateKey: varchar('template_key', { length: 100 }).notNull(),
     payload: jsonb('payload'),
     idempotencyKey: varchar('idempotency_key', { length: 100 }).unique(),
-    attempts: varchar('attempts', { length: 5 }).notNull().default('0'),
+    attempts: integer('attempts').notNull().default(0),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
     failedAt: timestamp('failed_at', { withTimezone: true }),

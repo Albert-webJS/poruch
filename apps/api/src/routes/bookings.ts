@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { eq, and, desc, isNull, lt } from 'drizzle-orm'
-import { bookingRequests, bookingStatusHistory, clientContacts, providerProfiles, providerServices, users } from '@poruch/db/schema'
+import { bookingRequests, bookingStatusHistory, clientContacts, providerProfiles, providerServices } from '@poruch/db/schema'
 import { CreateBooking, ConfirmBooking, DeclineBooking, ProposeBooking, CancelBooking, BookingListQuery } from '@poruch/validators'
 import type { AppEnv } from '../lib/bindings.js'
 import { getDb } from '../lib/db.js'
@@ -9,7 +9,7 @@ import { success, paginated } from '../lib/response.js'
 import { DomainError } from '../lib/errors.js'
 import { assertTransition, getExpiresAt } from '../lib/booking-machine.js'
 import { requireAuth } from '../middleware/auth.js'
-import { requireMaster } from '../middleware/rbac.js'
+import { requireMaster, resolveProvider } from '../middleware/rbac.js'
 
 const bookings = new Hono<AppEnv>()
 
@@ -68,8 +68,10 @@ bookings.post('/', zValidator('json', CreateBooking), async (c) => {
     clientContact = newContact!
   }
 
-  // Generate access token
-  const accessToken = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '')
+  // Generate access token (256-bit, hex-encoded = 64 chars)
+  const tokenBytes = new Uint8Array(32)
+  crypto.getRandomValues(tokenBytes)
+  const accessToken = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, '0')).join('')
 
   // Create booking
   const expiresAt = getExpiresAt('pending', provider.responseTimeHours)
@@ -111,20 +113,12 @@ bookings.post('/', zValidator('json', CreateBooking), async (c) => {
 
 // === Provider: list their bookings ===
 
-bookings.get('/', requireAuth, requireMaster, zValidator('query', BookingListQuery), async (c) => {
+bookings.get('/', requireAuth, requireMaster, resolveProvider, zValidator('query', BookingListQuery), async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const query = c.req.valid('query')
 
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
-
-  const conditions = [eq(bookingRequests.providerId, profile.id), isNull(bookingRequests.deletedAt)]
+  const conditions = [eq(bookingRequests.providerId, providerId), isNull(bookingRequests.deletedAt)]
 
   if (query.status) {
     conditions.push(eq(bookingRequests.status, query.status))
@@ -164,11 +158,11 @@ bookings.get('/', requireAuth, requireMaster, zValidator('query', BookingListQue
 // === Provider actions ===
 
 // POST /bookings/:id/confirm
-bookings.post('/:id/confirm', requireAuth, requireMaster, zValidator('json', ConfirmBooking), async (c) => {
+bookings.post('/:id/confirm', requireAuth, requireMaster, resolveProvider, zValidator('json', ConfirmBooking), async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
   const body = c.req.valid('json')
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
 
   const result = await db.transaction(async (tx) => {
     const [booking] = await tx
@@ -177,10 +171,7 @@ bookings.post('/:id/confirm', requireAuth, requireMaster, zValidator('json', Con
       .where(eq(bookingRequests.id, bookingId))
       .for('update')
 
-    if (!booking) throw DomainError.notFound('Booking not found')
-
-    // Verify ownership
-    await verifyProviderOwnership(tx, userId, booking.providerId)
+    if (!booking || booking.providerId !== providerId) throw DomainError.notFound('Booking not found')
 
     assertTransition(booking.status, 'confirmed')
 
@@ -206,7 +197,7 @@ bookings.post('/:id/confirm', requireAuth, requireMaster, zValidator('json', Con
       bookingId,
       previousStatus: booking.status,
       newStatus: 'confirmed',
-      changedBy: userId,
+      changedBy: c.get('userId'),
     })
 
     return updated
@@ -223,17 +214,16 @@ bookings.post('/:id/confirm', requireAuth, requireMaster, zValidator('json', Con
 })
 
 // POST /bookings/:id/decline
-bookings.post('/:id/decline', requireAuth, requireMaster, zValidator('json', DeclineBooking), async (c) => {
+bookings.post('/:id/decline', requireAuth, requireMaster, resolveProvider, zValidator('json', DeclineBooking), async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
   const body = c.req.valid('json')
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
 
   const result = await db.transaction(async (tx) => {
     const [booking] = await tx.select().from(bookingRequests).where(eq(bookingRequests.id, bookingId)).for('update')
-    if (!booking) throw DomainError.notFound('Booking not found')
+    if (!booking || booking.providerId !== providerId) throw DomainError.notFound('Booking not found')
 
-    await verifyProviderOwnership(tx, userId, booking.providerId)
     assertTransition(booking.status, 'declined')
 
     const [updated] = await tx
@@ -254,7 +244,7 @@ bookings.post('/:id/decline', requireAuth, requireMaster, zValidator('json', Dec
       bookingId,
       previousStatus: booking.status,
       newStatus: 'declined',
-      changedBy: userId,
+      changedBy: c.get('userId'),
       reason: body.reason,
     })
 
@@ -271,17 +261,16 @@ bookings.post('/:id/decline', requireAuth, requireMaster, zValidator('json', Dec
 })
 
 // POST /bookings/:id/propose
-bookings.post('/:id/propose', requireAuth, requireMaster, zValidator('json', ProposeBooking), async (c) => {
+bookings.post('/:id/propose', requireAuth, requireMaster, resolveProvider, zValidator('json', ProposeBooking), async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
   const body = c.req.valid('json')
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
 
   const result = await db.transaction(async (tx) => {
     const [booking] = await tx.select().from(bookingRequests).where(eq(bookingRequests.id, bookingId)).for('update')
-    if (!booking) throw DomainError.notFound('Booking not found')
+    if (!booking || booking.providerId !== providerId) throw DomainError.notFound('Booking not found')
 
-    await verifyProviderOwnership(tx, userId, booking.providerId)
     assertTransition(booking.status, 'proposed')
 
     const expiresAt = getExpiresAt('proposed', 24)
@@ -306,7 +295,7 @@ bookings.post('/:id/propose', requireAuth, requireMaster, zValidator('json', Pro
       bookingId,
       previousStatus: booking.status,
       newStatus: 'proposed',
-      changedBy: userId,
+      changedBy: c.get('userId'),
     })
 
     return updated
@@ -322,16 +311,15 @@ bookings.post('/:id/propose', requireAuth, requireMaster, zValidator('json', Pro
 })
 
 // POST /bookings/:id/complete
-bookings.post('/:id/complete', requireAuth, requireMaster, async (c) => {
+bookings.post('/:id/complete', requireAuth, requireMaster, resolveProvider, async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
 
   const result = await db.transaction(async (tx) => {
     const [booking] = await tx.select().from(bookingRequests).where(eq(bookingRequests.id, bookingId)).for('update')
-    if (!booking) throw DomainError.notFound('Booking not found')
+    if (!booking || booking.providerId !== providerId) throw DomainError.notFound('Booking not found')
 
-    await verifyProviderOwnership(tx, userId, booking.providerId)
     assertTransition(booking.status, 'completed')
 
     const [updated] = await tx
@@ -346,7 +334,7 @@ bookings.post('/:id/complete', requireAuth, requireMaster, async (c) => {
       bookingId,
       previousStatus: booking.status,
       newStatus: 'completed',
-      changedBy: userId,
+      changedBy: c.get('userId'),
     })
 
     return updated
@@ -502,18 +490,6 @@ bookings.post('/status/:token/accept', async (c) => {
 function maskPhone(phone: string): string {
   if (phone.length < 8) return '****'
   return phone.slice(0, 4) + '****' + phone.slice(-4)
-}
-
-async function verifyProviderOwnership(tx: any, clerkUserId: string, providerId: string) {
-  const user = await tx.query.users.findFirst({ where: eq(users.clerkId, clerkUserId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await tx.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile || profile.id !== providerId) {
-    throw DomainError.notFound('Booking not found') // 404 instead of 403 to prevent enumeration
-  }
 }
 
 export default bookings

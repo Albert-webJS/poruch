@@ -1,34 +1,26 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { eq, and, gte, lte, isNull } from 'drizzle-orm'
-import { workingHours, availabilityExceptions, providerProfiles, bookingRequests, providerServices, users } from '@poruch/db/schema'
+import { workingHours, availabilityExceptions, providerProfiles, bookingRequests, providerServices } from '@poruch/db/schema'
 import { UpdateWorkingHours, CreateAvailabilityException, AvailableSlotsQuery } from '@poruch/validators'
 import type { AppEnv } from '../lib/bindings.js'
 import { getDb } from '../lib/db.js'
 import { success } from '../lib/response.js'
 import { DomainError } from '../lib/errors.js'
 import { requireAuth } from '../middleware/auth.js'
-import { requireMaster } from '../middleware/rbac.js'
+import { requireMaster, resolveProvider } from '../middleware/rbac.js'
 
 const schedule = new Hono<AppEnv>()
 
-// === Working Hours ===
+// === Working Hours (auth required) ===
 
 // GET /schedule/hours
-schedule.get('/hours', requireAuth, requireMaster, async (c) => {
+schedule.get('/hours', requireAuth, requireMaster, resolveProvider, async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
+  const providerId = c.get('providerId')!
 
   const hours = await db.query.workingHours.findMany({
-    where: eq(workingHours.providerId, profile.id),
+    where: eq(workingHours.providerId, providerId),
     orderBy: (h, { asc }) => [asc(h.dayOfWeek)],
   })
 
@@ -36,18 +28,10 @@ schedule.get('/hours', requireAuth, requireMaster, async (c) => {
 })
 
 // PUT /schedule/hours — replace all working hours
-schedule.put('/hours', requireAuth, requireMaster, zValidator('json', UpdateWorkingHours), async (c) => {
+schedule.put('/hours', requireAuth, requireMaster, resolveProvider, zValidator('json', UpdateWorkingHours), async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const { schedule: newSchedule } = c.req.valid('json')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
 
   // Validate: no duplicate days
   const days = newSchedule.map((s) => s.dayOfWeek)
@@ -64,11 +48,11 @@ schedule.put('/hours', requireAuth, requireMaster, zValidator('json', UpdateWork
 
   // Replace all hours in transaction
   const result = await db.transaction(async (tx) => {
-    await tx.delete(workingHours).where(eq(workingHours.providerId, profile.id))
+    await tx.delete(workingHours).where(eq(workingHours.providerId, providerId))
 
     const inserted = await tx
       .insert(workingHours)
-      .values(newSchedule.map((s) => ({ ...s, providerId: profile.id })))
+      .values(newSchedule.map((s) => ({ ...s, providerId })))
       .returning()
 
     return inserted
@@ -77,23 +61,15 @@ schedule.put('/hours', requireAuth, requireMaster, zValidator('json', UpdateWork
   return success(c, result)
 })
 
-// === Availability Exceptions ===
+// === Availability Exceptions (auth required) ===
 
 // GET /schedule/exceptions
-schedule.get('/exceptions', requireAuth, requireMaster, async (c) => {
+schedule.get('/exceptions', requireAuth, requireMaster, resolveProvider, async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
+  const providerId = c.get('providerId')!
 
   const exceptions = await db.query.availabilityExceptions.findMany({
-    where: eq(availabilityExceptions.providerId, profile.id),
+    where: eq(availabilityExceptions.providerId, providerId),
     orderBy: (e, { asc }) => [asc(e.date)],
   })
 
@@ -101,18 +77,10 @@ schedule.get('/exceptions', requireAuth, requireMaster, async (c) => {
 })
 
 // POST /schedule/exceptions
-schedule.post('/exceptions', requireAuth, requireMaster, zValidator('json', CreateAvailabilityException), async (c) => {
+schedule.post('/exceptions', requireAuth, requireMaster, resolveProvider, zValidator('json', CreateAvailabilityException), async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const body = c.req.valid('json')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
 
   // Determine exception type
   const exceptionType = !body.isAvailable
@@ -124,7 +92,7 @@ schedule.post('/exceptions', requireAuth, requireMaster, zValidator('json', Crea
   const [exception] = await db
     .insert(availabilityExceptions)
     .values({
-      providerId: profile.id,
+      providerId,
       date: body.date,
       exceptionType,
       isAvailable: body.isAvailable,
@@ -148,22 +116,14 @@ schedule.post('/exceptions', requireAuth, requireMaster, zValidator('json', Crea
 })
 
 // DELETE /schedule/exceptions/:id
-schedule.delete('/exceptions/:id', requireAuth, requireMaster, async (c) => {
+schedule.delete('/exceptions/:id', requireAuth, requireMaster, resolveProvider, async (c) => {
   const db = getDb(c)
-  const userId = c.get('userId')
+  const providerId = c.get('providerId')!
   const exceptionId = c.req.param('id')
-
-  const user = await db.query.users.findFirst({ where: eq(users.clerkId, userId) })
-  if (!user) throw DomainError.notFound('User not found')
-
-  const profile = await db.query.providerProfiles.findFirst({
-    where: eq(providerProfiles.userId, user.id),
-  })
-  if (!profile) throw DomainError.notFound('Profile not found')
 
   const [deleted] = await db
     .delete(availabilityExceptions)
-    .where(and(eq(availabilityExceptions.id, exceptionId), eq(availabilityExceptions.providerId, profile.id)))
+    .where(and(eq(availabilityExceptions.id, exceptionId), eq(availabilityExceptions.providerId, providerId)))
     .returning()
 
   if (!deleted) throw DomainError.notFound('Exception not found')
@@ -207,7 +167,7 @@ schedule.get('/slots/:slug', zValidator('query', AvailableSlotsQuery), async (c)
     ),
   })
 
-  // Get confirmed bookings in range
+  // Get confirmed bookings in range (with service for duration)
   const confirmedBookings = await db.query.bookingRequests.findMany({
     where: and(
       eq(bookingRequests.providerId, profile.id),
@@ -215,6 +175,7 @@ schedule.get('/slots/:slug', zValidator('query', AvailableSlotsQuery), async (c)
       gte(bookingRequests.confirmedDate, query.fromDate),
       lte(bookingRequests.confirmedDate, toDate),
     ),
+    with: { service: { columns: { durationMinutes: true } } },
   })
 
   // Calculate available slots
@@ -240,7 +201,7 @@ interface SlotCalcParams {
   toDate: string
   hours: { dayOfWeek: number; startTime: string; endTime: string; isActive: boolean }[]
   exceptions: { date: string; isAvailable: boolean; startTime: string | null; endTime: string | null }[]
-  confirmedBookings: { confirmedDate: string | null; confirmedTime: string | null }[]
+  confirmedBookings: { confirmedDate: string | null; confirmedTime: string | null; service: { durationMinutes: number | null } }[]
   durationMinutes: number
   timezone: string
   slotStepMinutes: number
@@ -297,9 +258,14 @@ function calculateAvailableSlots(params: SlotCalcParams) {
       const slotDate = new Date(`${dateStr}T${slotStart}:00`)
       if (slotDate.getTime() - now.getTime() < leadTimeMs) continue
 
-      // Check conflict with confirmed bookings
+      // Check conflict with confirmed bookings (range overlap)
       const hasConflict = confirmedBookings.some((b) => {
-        return b.confirmedDate === dateStr && b.confirmedTime === slotStart
+        if (b.confirmedDate !== dateStr || !b.confirmedTime) return false
+        const [bH, bM] = b.confirmedTime.split(':').map(Number) as [number, number]
+        const bookingStart = bH * 60 + bM
+        const bookingEnd = bookingStart + (b.service.durationMinutes ?? 60)
+        // Two ranges overlap if one starts before the other ends
+        return m < bookingEnd && slotEndM > bookingStart
       })
       if (hasConflict) continue
 

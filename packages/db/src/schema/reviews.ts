@@ -8,8 +8,7 @@ export const reviews = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     bookingId: uuid('booking_id')
       .references(() => bookingRequests.id)
-      .unique()
-      .notNull(),
+      .unique(),
     providerId: uuid('provider_id')
       .references(() => providerProfiles.id)
       .notNull(),

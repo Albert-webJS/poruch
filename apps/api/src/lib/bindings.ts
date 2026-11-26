@@ -6,6 +6,7 @@ export type Bindings = {
   NOTIFICATIONS_QUEUE: Queue
   CLERK_SECRET_KEY: string
   CLERK_PUBLISHABLE_KEY: string
+  CLERK_WEBHOOK_SECRET: string
   TURNSTILE_SECRET_KEY: string
   ENVIRONMENT: string
   API_VERSION: string
