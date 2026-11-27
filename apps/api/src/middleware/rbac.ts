@@ -24,9 +24,37 @@ export const resolveProvider = createMiddleware<AppEnv>(async (c, next) => {
   const db = getDb(c)
   const userId = c.get('userId')
 
-  const user = await db.query.users.findFirst({
+  let user = await db.query.users.findFirst({
     where: eq(users.clerkId, userId),
   })
+
+  // Dev mode: auto-create demo user and provider if not found
+  if (!user && c.env.ENVIRONMENT === 'development' && userId.startsWith('demo_')) {
+    const category = await db.query.serviceCategories.findFirst()
+    const city = await db.query.cities.findFirst()
+    if (!category || !city) throw DomainError.notFound('Run db:seed first — no categories/cities in DB')
+
+    const inserted = await db.insert(users).values({
+      clerkId: userId,
+      email: `${userId}@demo.poruch.app`,
+      role: 'master',
+    }).returning()
+    const newUser = inserted[0]
+    if (!newUser) throw DomainError.notFound('Failed to create demo user')
+
+    await db.insert(providerProfiles).values({
+      userId: newUser.id,
+      slug: userId.replace('_', '-'),
+      name: 'Demo Provider',
+      categoryId: category.id,
+      cityId: city.id,
+      status: 'draft',
+    })
+
+    user = newUser
+    console.log(`[dev] Auto-created demo user & provider for ${userId}`)
+  }
+
   if (!user) throw DomainError.notFound('User not found')
 
   const profile = await db.query.providerProfiles.findFirst({

@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { eq, and, isNull } from 'drizzle-orm'
 import { providerProfiles, providerServices } from '@poruch/db/schema'
-import { UpdateProviderProfile, CreateProviderService, UpdateProviderService } from '@poruch/validators'
+import { UpdateProviderProfile, UpdateProviderSlug, CreateProviderService, UpdateProviderService } from '@poruch/validators'
 import type { AppEnv } from '../lib/bindings.js'
 import { getDb } from '../lib/db.js'
 import { success } from '../lib/response.js'
@@ -45,7 +45,50 @@ providers.patch('/me', zValidator('json', UpdateProviderProfile), async (c) => {
 
   if (!updated) throw DomainError.notFound('Provider profile not found')
 
-  return success(c, updated)
+  // Return full profile with relations (same as GET /me)
+  const profile = await db.query.providerProfiles.findFirst({
+    where: and(eq(providerProfiles.id, providerId), isNull(providerProfiles.deletedAt)),
+    with: {
+      category: true,
+      city: true,
+      services: { where: eq(providerServices.isActive, true) },
+      serviceAreas: { with: { district: true } },
+    },
+  })
+
+  return success(c, profile)
+})
+
+providers.patch('/me/slug', zValidator('json', UpdateProviderSlug), async (c) => {
+  const db = getDb(c)
+  const providerId = c.get('providerId')!
+  const { slug } = c.req.valid('json')
+
+  // Check uniqueness
+  const existing = await db.query.providerProfiles.findFirst({
+    where: and(eq(providerProfiles.slug, slug), isNull(providerProfiles.deletedAt)),
+    columns: { id: true },
+  })
+  if (existing && existing.id !== providerId) {
+    throw DomainError.validation('Це посилання вже зайняте')
+  }
+
+  await db
+    .update(providerProfiles)
+    .set({ slug, updatedAt: new Date() })
+    .where(eq(providerProfiles.id, providerId))
+
+  const profile = await db.query.providerProfiles.findFirst({
+    where: and(eq(providerProfiles.id, providerId), isNull(providerProfiles.deletedAt)),
+    with: {
+      category: true,
+      city: true,
+      services: { where: eq(providerServices.isActive, true) },
+      serviceAreas: { with: { district: true } },
+    },
+  })
+
+  return success(c, profile)
 })
 
 providers.post('/me/publish', async (c) => {

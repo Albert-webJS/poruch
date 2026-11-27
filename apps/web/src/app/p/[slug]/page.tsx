@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { api } from '@/lib/api'
 import { notFound } from 'next/navigation'
+import { CitySync } from '@/components/city-sync'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -62,6 +64,9 @@ export default async function ProviderPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <Suspense>
+        <CitySync citySlug={provider.citySlug} />
+      </Suspense>
       {/* Breadcrumb */}
       <nav className="text-sm text-ocean-500 mb-6">
         <Link href="/" className="hover:text-ocean-700 transition-colors">

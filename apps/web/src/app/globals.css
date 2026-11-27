@@ -1,25 +1,102 @@
 @import 'tailwindcss';
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme {
-  /* Ocean palette */
   --color-ocean-900: #073B44;
   --color-ocean-700: #0F766E;
   --color-ocean-500: #14B8A6;
   --color-ocean-300: #92E2DE;
   --color-ocean-100: #E6F7F6;
   --color-surface: #F8FAFC;
-
-  /* Semantic aliases */
-  --color-primary: #0F766E;
   --color-primary-hover: #073B44;
-  --color-accent: #14B8A6;
-
-  /* Typography */
   --font-sans: 'Manrope', 'Nunito Sans', Arial, sans-serif;
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: #F8FAFC;
+  --foreground: #073B44;
+  --card: #ffffff;
+  --card-foreground: #073B44;
+  --popover: #ffffff;
+  --popover-foreground: #073B44;
+  --primary: #0F766E;
+  --primary-foreground: #ffffff;
+  --secondary: #E6F7F6;
+  --secondary-foreground: #073B44;
+  --muted: #E6F7F6;
+  --muted-foreground: #0F766E;
+  --accent: #14B8A6;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --border: #E6F7F6;
+  --input: #E6F7F6;
+  --ring: #0F766E;
+  --radius: 0.75rem;
 }
 
 body {
   font-family: var(--font-sans);
   color: var(--color-ocean-900);
   background-color: var(--color-surface);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 }

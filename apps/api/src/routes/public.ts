@@ -49,6 +49,7 @@ publicRoutes.get('/providers/:slug', async (c) => {
     description: profile.description,
     categoryName: profile.category.nameUk,
     cityName: profile.city.nameUk,
+    citySlug: profile.city.slug,
     photoUrl: profile.photoUrl,
     services: profile.services.map((s) => ({
       id: s.id,

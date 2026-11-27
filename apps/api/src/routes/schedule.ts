@@ -40,16 +40,13 @@ schedule.put('/hours', requireAuth, requireMaster, resolveProvider, zValidator('
     }
   }
 
-  const result = await db.transaction(async (tx) => {
-    await tx.delete(workingHours).where(eq(workingHours.providerId, providerId))
+  // neon-http driver does not support interactive transactions
+  await db.delete(workingHours).where(eq(workingHours.providerId, providerId))
 
-    const inserted = await tx
-      .insert(workingHours)
-      .values(newSchedule.map((s) => ({ ...s, providerId })))
-      .returning()
-
-    return inserted
-  })
+  const result = await db
+    .insert(workingHours)
+    .values(newSchedule.map((s) => ({ ...s, providerId })))
+    .returning()
 
   return success(c, result)
 })

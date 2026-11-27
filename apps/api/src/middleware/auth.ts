@@ -5,6 +5,14 @@ import { DomainError } from '../lib/errors.js'
 
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   const authHeader = c.req.header('Authorization')
+
+  if (c.env.ENVIRONMENT === 'development' && !authHeader) {
+    c.set('userId', 'demo_oleksandr')
+    c.set('role', 'master')
+    await next()
+    return
+  }
+
   if (!authHeader?.startsWith('Bearer ')) {
     throw DomainError.unauthorized('Missing or invalid Authorization header')
   }

@@ -48,6 +48,7 @@ export interface ProviderProfile {
   description: string | null
   categoryName: string
   cityName: string
+  citySlug: string
   photoUrl: string | null
   services: {
     id: string

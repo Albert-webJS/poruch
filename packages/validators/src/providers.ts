@@ -60,3 +60,13 @@ export const PublicProviderResponse = z.object({
 })
 
 export type PublicProviderResponse = z.infer<typeof PublicProviderResponse>
+
+export const UpdateProviderSlug = z.object({
+  slug: z
+    .string()
+    .min(3, 'Мінімум 3 символи')
+    .max(60, 'Максимум 60 символів')
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Тільки латинські літери, цифри та дефіс'),
+})
+
+export type UpdateProviderSlug = z.infer<typeof UpdateProviderSlug>
