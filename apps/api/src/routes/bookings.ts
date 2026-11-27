@@ -13,40 +13,36 @@ import { requireMaster, resolveProvider } from '../middleware/rbac.js'
 
 const bookings = new Hono<AppEnv>()
 
-// === Create Booking (public, with Turnstile) ===
-
 bookings.post('/', zValidator('json', CreateBooking), async (c) => {
   const db = getDb(c)
   const body = c.req.valid('json')
 
-  // Verify Turnstile token
-  const turnstileResult = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      secret: c.env.TURNSTILE_SECRET_KEY,
-      response: body.turnstileToken,
-      remoteip: c.req.header('CF-Connecting-IP'),
-    }),
-  })
-  const turnstile = (await turnstileResult.json()) as { success: boolean }
-  if (!turnstile.success) {
-    throw DomainError.validation('Turnstile verification failed')
+  if (c.env.ENVIRONMENT !== 'development') {
+    const turnstileResult = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: c.env.TURNSTILE_SECRET_KEY,
+        response: body.turnstileToken,
+        remoteip: c.req.header('CF-Connecting-IP'),
+      }),
+    })
+    const turnstile = (await turnstileResult.json()) as { success: boolean }
+    if (!turnstile.success) {
+      throw DomainError.validation('Turnstile verification failed')
+    }
   }
 
-  // Verify provider exists and is published
   const provider = await db.query.providerProfiles.findFirst({
     where: and(eq(providerProfiles.id, body.providerId), eq(providerProfiles.status, 'published'), isNull(providerProfiles.deletedAt)),
   })
   if (!provider) throw DomainError.notFound('Provider not found')
 
-  // Verify service exists and belongs to provider
   const service = await db.query.providerServices.findFirst({
     where: and(eq(providerServices.id, body.serviceId), eq(providerServices.providerId, provider.id), eq(providerServices.isActive, true)),
   })
   if (!service) throw DomainError.notFound('Service not found')
 
-  // Check idempotency
   const idempotencyKey = c.req.header('Idempotency-Key')
   if (idempotencyKey) {
     const existing = await db.query.bookingRequests.findFirst({
@@ -55,7 +51,6 @@ bookings.post('/', zValidator('json', CreateBooking), async (c) => {
     if (existing) return success(c, existing, 201)
   }
 
-  // Create or find client contact
   let clientContact = await db.query.clientContacts.findFirst({
     where: eq(clientContacts.phone, body.clientPhone),
   })
@@ -68,12 +63,10 @@ bookings.post('/', zValidator('json', CreateBooking), async (c) => {
     clientContact = newContact!
   }
 
-  // Generate access token (256-bit, hex-encoded = 64 chars)
   const tokenBytes = new Uint8Array(32)
   crypto.getRandomValues(tokenBytes)
   const accessToken = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, '0')).join('')
 
-  // Create booking
   const expiresAt = getExpiresAt('pending', provider.responseTimeHours)
 
   const [booking] = await db
@@ -92,7 +85,6 @@ bookings.post('/', zValidator('json', CreateBooking), async (c) => {
     })
     .returning()
 
-  // Record initial status
   await db.insert(bookingStatusHistory).values({
     bookingId: booking!.id,
     previousStatus: 'pending',
@@ -100,8 +92,7 @@ bookings.post('/', zValidator('json', CreateBooking), async (c) => {
     changedBy: 'client',
   })
 
-  // Queue notification to provider
-  await c.env.NOTIFICATIONS_QUEUE.send({
+  await c.env.NOTIFICATIONS_QUEUE?.send({
     type: 'booking_created',
     bookingId: booking!.id,
     providerId: provider.id,
@@ -110,8 +101,6 @@ bookings.post('/', zValidator('json', CreateBooking), async (c) => {
 
   return success(c, { ...booking, accessToken }, 201)
 })
-
-// === Provider: list their bookings ===
 
 bookings.get('/', requireAuth, requireMaster, resolveProvider, zValidator('query', BookingListQuery), async (c) => {
   const db = getDb(c)
@@ -141,7 +130,6 @@ bookings.get('/', requireAuth, requireMaster, resolveProvider, zValidator('query
   const data = hasMore ? results.slice(0, query.limit) : results
   const cursor = hasMore ? data[data.length - 1]!.id : null
 
-  // Mask client phone until confirmed
   const masked = data.map((b) => ({
     ...b,
     clientContact: {
@@ -155,9 +143,6 @@ bookings.get('/', requireAuth, requireMaster, resolveProvider, zValidator('query
   return paginated(c, masked, cursor)
 })
 
-// === Provider actions ===
-
-// POST /bookings/:id/confirm
 bookings.post('/:id/confirm', requireAuth, requireMaster, resolveProvider, zValidator('json', ConfirmBooking), async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
@@ -203,8 +188,7 @@ bookings.post('/:id/confirm', requireAuth, requireMaster, resolveProvider, zVali
     return updated
   })
 
-  // Queue notification to client
-  await c.env.NOTIFICATIONS_QUEUE.send({
+  await c.env.NOTIFICATIONS_QUEUE?.send({
     type: 'booking_confirmed',
     bookingId,
     idempotencyKey: `${bookingId}:confirmed:${Date.now()}`,
@@ -213,7 +197,6 @@ bookings.post('/:id/confirm', requireAuth, requireMaster, resolveProvider, zVali
   return success(c, result)
 })
 
-// POST /bookings/:id/decline
 bookings.post('/:id/decline', requireAuth, requireMaster, resolveProvider, zValidator('json', DeclineBooking), async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
@@ -251,7 +234,7 @@ bookings.post('/:id/decline', requireAuth, requireMaster, resolveProvider, zVali
     return updated
   })
 
-  await c.env.NOTIFICATIONS_QUEUE.send({
+  await c.env.NOTIFICATIONS_QUEUE?.send({
     type: 'booking_declined',
     bookingId,
     idempotencyKey: `${bookingId}:declined:${Date.now()}`,
@@ -260,7 +243,6 @@ bookings.post('/:id/decline', requireAuth, requireMaster, resolveProvider, zVali
   return success(c, result)
 })
 
-// POST /bookings/:id/propose
 bookings.post('/:id/propose', requireAuth, requireMaster, resolveProvider, zValidator('json', ProposeBooking), async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
@@ -301,7 +283,7 @@ bookings.post('/:id/propose', requireAuth, requireMaster, resolveProvider, zVali
     return updated
   })
 
-  await c.env.NOTIFICATIONS_QUEUE.send({
+  await c.env.NOTIFICATIONS_QUEUE?.send({
     type: 'booking_proposed',
     bookingId,
     idempotencyKey: `${bookingId}:proposed:${Date.now()}`,
@@ -310,7 +292,6 @@ bookings.post('/:id/propose', requireAuth, requireMaster, resolveProvider, zVali
   return success(c, result)
 })
 
-// POST /bookings/:id/complete
 bookings.post('/:id/complete', requireAuth, requireMaster, resolveProvider, async (c) => {
   const db = getDb(c)
   const bookingId = c.req.param('id')
@@ -343,8 +324,6 @@ bookings.post('/:id/complete', requireAuth, requireMaster, resolveProvider, asyn
   return success(c, result)
 })
 
-// === Client: view booking by token ===
-
 bookings.get('/status/:token', async (c) => {
   const db = getDb(c)
   const token = c.req.param('token')
@@ -359,7 +338,6 @@ bookings.get('/status/:token', async (c) => {
 
   if (!booking) throw DomainError.notFound('Booking not found')
 
-  // Don't expose internal fields to client
   return success(c, {
     id: booking.id,
     status: booking.status,
@@ -377,8 +355,6 @@ bookings.get('/status/:token', async (c) => {
     createdAt: booking.createdAt,
   })
 })
-
-// === Client: cancel booking by token ===
 
 bookings.post('/status/:token/cancel', zValidator('json', CancelBooking), async (c) => {
   const db = getDb(c)
@@ -421,7 +397,7 @@ bookings.post('/status/:token/cancel', zValidator('json', CancelBooking), async 
     return updated
   })
 
-  await c.env.NOTIFICATIONS_QUEUE.send({
+  await c.env.NOTIFICATIONS_QUEUE?.send({
     type: 'booking_cancelled',
     bookingId: result.id,
     idempotencyKey: `${result.id}:cancelled:${Date.now()}`,
@@ -429,8 +405,6 @@ bookings.post('/status/:token/cancel', zValidator('json', CancelBooking), async 
 
   return success(c, { status: 'cancelled' })
 })
-
-// === Client: accept proposal by token ===
 
 bookings.post('/status/:token/accept', async (c) => {
   const db = getDb(c)
@@ -476,7 +450,7 @@ bookings.post('/status/:token/accept', async (c) => {
     return updated
   })
 
-  await c.env.NOTIFICATIONS_QUEUE.send({
+  await c.env.NOTIFICATIONS_QUEUE?.send({
     type: 'booking_confirmed',
     bookingId: result.id,
     idempotencyKey: `${result.id}:confirmed:${Date.now()}`,
@@ -484,8 +458,6 @@ bookings.post('/status/:token/accept', async (c) => {
 
   return success(c, { status: 'confirmed' })
 })
-
-// === Helpers ===
 
 function maskPhone(phone: string): string {
   if (phone.length < 8) return '****'

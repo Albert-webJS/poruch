@@ -8,7 +8,6 @@ import { DomainError } from '../lib/errors.js'
 
 const publicRoutes = new Hono<AppEnv>()
 
-// GET /public/providers/:slug — public provider profile
 publicRoutes.get('/providers/:slug', async (c) => {
   const db = getDb(c)
   const slug = c.req.param('slug')
@@ -73,7 +72,6 @@ publicRoutes.get('/providers/:slug', async (c) => {
   })
 })
 
-// GET /public/categories — list all categories
 publicRoutes.get('/categories', async (c) => {
   const db = getDb(c)
 
@@ -84,7 +82,6 @@ publicRoutes.get('/categories', async (c) => {
   return success(c, categories)
 })
 
-// GET /public/categories/:slug — single category with providers count
 publicRoutes.get('/categories/:slug', async (c) => {
   const db = getDb(c)
   const slug = c.req.param('slug')
@@ -98,7 +95,6 @@ publicRoutes.get('/categories/:slug', async (c) => {
   return success(c, category)
 })
 
-// GET /public/cities — list all cities
 publicRoutes.get('/cities', async (c) => {
   const db = getDb(c)
 
@@ -109,13 +105,11 @@ publicRoutes.get('/cities', async (c) => {
   return success(c, allCities)
 })
 
-// GET /public/providers — list providers with filters
 publicRoutes.get('/providers', async (c) => {
   const db = getDb(c)
   const categorySlug = c.req.query('category')
   const citySlug = c.req.query('city')
 
-  // Resolve slugs to IDs upfront to avoid subqueries and JS filtering
   let categoryId: string | undefined
   let cityId: string | undefined
 

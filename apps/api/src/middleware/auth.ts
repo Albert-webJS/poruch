@@ -3,7 +3,6 @@ import { verifyToken } from '@clerk/backend'
 import type { AppEnv } from '../lib/bindings.js'
 import { DomainError } from '../lib/errors.js'
 
-/** Require authenticated user via Clerk JWT */
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   const authHeader = c.req.header('Authorization')
   if (!authHeader?.startsWith('Bearer ')) {
@@ -25,7 +24,6 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   await next()
 })
 
-/** Optionally authenticate — set userId if token present, continue if not */
 export const optionalAuth = createMiddleware<AppEnv>(async (c, next) => {
   const authHeader = c.req.header('Authorization')
   if (authHeader?.startsWith('Bearer ')) {
@@ -37,7 +35,6 @@ export const optionalAuth = createMiddleware<AppEnv>(async (c, next) => {
       c.set('userId', payload.sub)
       c.set('role', (payload.public_metadata as any)?.role ?? 'client')
     } catch {
-      // Invalid token — treat as unauthenticated
     }
   }
   await next()

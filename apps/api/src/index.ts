@@ -11,45 +11,34 @@ import webhooks from './routes/webhooks.js'
 
 const app = new Hono<AppEnv>()
 
-// === Global middleware ===
-
 app.use('*', logger())
 app.use(
   '*',
   cors({
-    origin: ['https://poruch.app', 'http://localhost:3000'],
+    origin: (origin) => {
+      const allowed = ['https://poruch.app', 'http://localhost:3000']
+      if (origin.match(/^http:\/\/(localhost|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/)) {
+        return origin
+      }
+      return allowed.includes(origin) ? origin : ''
+    },
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
     maxAge: 86400,
   }),
 )
 
-// === Error handler ===
-
 app.onError(errorHandler)
 
-// === Routes ===
-
-// Public API (no auth)
 app.route('/api/v1/public', publicRoutes)
-
-// Webhooks (verified by signature, not auth)
 app.route('/api/v1/webhooks', webhooks)
-
-// Provider API (auth required)
 app.route('/api/v1/providers', providers)
 app.route('/api/v1/schedule', schedule)
-
-// Bookings (mixed: create is public, list is auth)
 app.route('/api/v1/bookings', bookings)
-
-// === Health check ===
 
 app.get('/health', async (c) => {
   return c.json({ status: 'ok', version: c.env.API_VERSION, timestamp: new Date().toISOString() })
 })
-
-// === 404 fallback ===
 
 app.notFound((c) => {
   return c.json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404)

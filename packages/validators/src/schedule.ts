@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-// === Working Hours ===
-
 const TimeString = z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format')
 
 export const CreateWorkingHours = z.object({
@@ -19,8 +17,6 @@ export const UpdateWorkingHours = z.object({
 
 export type UpdateWorkingHours = z.infer<typeof UpdateWorkingHours>
 
-// === Availability Exception ===
-
 export const CreateAvailabilityException = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
   isAvailable: z.boolean(),
@@ -31,8 +27,6 @@ export const CreateAvailabilityException = z.object({
 
 export type CreateAvailabilityException = z.infer<typeof CreateAvailabilityException>
 
-// === Available Slot (response) ===
-
 export const AvailableSlot = z.object({
   date: z.string(),
   startTime: z.string(),
@@ -42,8 +36,6 @@ export const AvailableSlot = z.object({
 })
 
 export type AvailableSlot = z.infer<typeof AvailableSlot>
-
-// === Slot Query ===
 
 export const AvailableSlotsQuery = z.object({
   serviceId: z.string().uuid(),

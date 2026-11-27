@@ -6,7 +6,6 @@ import type { AppEnv } from '../lib/bindings.js'
 import { getDb } from '../lib/db.js'
 import { DomainError } from '../lib/errors.js'
 
-/** Require specific role(s) */
 export function requireRole(...roles: Role[]) {
   return createMiddleware<AppEnv>(async (c, next) => {
     const userRole = c.get('role') as Role
@@ -17,13 +16,10 @@ export function requireRole(...roles: Role[]) {
   })
 }
 
-/** Require admin role */
 export const requireAdmin = requireRole('admin')
 
-/** Require master (provider) role */
 export const requireMaster = requireRole('master')
 
-/** Resolve provider profile from authenticated user and set providerId in context */
 export const resolveProvider = createMiddleware<AppEnv>(async (c, next) => {
   const db = getDb(c)
   const userId = c.get('userId')

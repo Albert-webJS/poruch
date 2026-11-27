@@ -7,7 +7,6 @@ import { getDb } from '../lib/db.js'
 
 const webhooks = new Hono<AppEnv>()
 
-// POST /webhooks/clerk — handle Clerk webhook events
 webhooks.post('/clerk', async (c) => {
   const svixId = c.req.header('svix-id')
   const svixTimestamp = c.req.header('svix-timestamp')
@@ -17,7 +16,6 @@ webhooks.post('/clerk', async (c) => {
     return c.json({ error: 'Missing svix headers' }, 400)
   }
 
-  // Verify webhook signature
   const webhookSecret = c.env.CLERK_WEBHOOK_SECRET
   if (!webhookSecret) {
     console.error('CLERK_WEBHOOK_SECRET is not configured')
@@ -41,7 +39,6 @@ webhooks.post('/clerk', async (c) => {
   const { type, data } = payload
   const db = getDb(c)
 
-  // Idempotency: check if already processed
   const cached = await c.env.KV?.get(`webhook:${svixId}`)
   if (cached) return c.json({ received: true })
 
@@ -104,7 +101,6 @@ webhooks.post('/clerk', async (c) => {
     }
   }
 
-  // Mark as processed
   await c.env.KV?.put(`webhook:${svixId}`, '1', { expirationTtl: 7 * 24 * 60 * 60 })
 
   return c.json({ received: true })

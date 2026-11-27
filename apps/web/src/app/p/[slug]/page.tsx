@@ -114,7 +114,7 @@ export default async function ProviderPage({ params }: Props) {
             {/* Action buttons */}
             <div className="flex gap-3 mt-6">
               <Link
-                href={`/p/${provider.slug}/book`}
+                href={`/p/${provider.slug}/booking`}
                 className="bg-primary text-white px-6 py-3 rounded-xl font-medium hover:bg-primary-hover transition-colors"
               >
                 Записатися

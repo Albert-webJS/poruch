@@ -33,7 +33,6 @@ async function seed() {
 
   console.log('Seeding districts...')
 
-  // Київ — 10 районів
   const kyivDistricts = await db
     .insert(districts)
     .values([
@@ -52,7 +51,6 @@ async function seed() {
 
   console.log(`  ✓ Київ: ${kyivDistricts.length} районів`)
 
-  // Ірпінь — місто + сусідні населені пункти громади
   const irpinDistricts = await db
     .insert(districts)
     .values([

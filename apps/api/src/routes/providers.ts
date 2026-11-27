@@ -12,12 +12,8 @@ import { requireMaster, resolveProvider } from '../middleware/rbac.js'
 
 const providers = new Hono<AppEnv>()
 
-// All routes require auth + master role + resolved provider
 providers.use('*', requireAuth, requireMaster, resolveProvider)
 
-// === Profile ===
-
-// GET /providers/me — get current provider's profile
 providers.get('/me', async (c) => {
   const db = getDb(c)
   const providerId = c.get('providerId')!
@@ -36,7 +32,6 @@ providers.get('/me', async (c) => {
   return success(c, profile)
 })
 
-// PATCH /providers/me — update profile
 providers.patch('/me', zValidator('json', UpdateProviderProfile), async (c) => {
   const db = getDb(c)
   const providerId = c.get('providerId')!
@@ -53,7 +48,6 @@ providers.patch('/me', zValidator('json', UpdateProviderProfile), async (c) => {
   return success(c, updated)
 })
 
-// POST /providers/me/publish — publish profile
 providers.post('/me/publish', async (c) => {
   const db = getDb(c)
   const providerId = c.get('providerId')!
@@ -80,9 +74,6 @@ providers.post('/me/publish', async (c) => {
   return success(c, updated)
 })
 
-// === Services ===
-
-// GET /providers/me/services
 providers.get('/me/services', async (c) => {
   const db = getDb(c)
   const providerId = c.get('providerId')!
@@ -95,7 +86,6 @@ providers.get('/me/services', async (c) => {
   return success(c, services)
 })
 
-// POST /providers/me/services
 providers.post('/me/services', zValidator('json', CreateProviderService), async (c) => {
   const db = getDb(c)
   const providerId = c.get('providerId')!
@@ -116,7 +106,6 @@ providers.post('/me/services', zValidator('json', CreateProviderService), async 
   return success(c, service, 201)
 })
 
-// PATCH /providers/me/services/:id
 providers.patch('/me/services/:id', zValidator('json', UpdateProviderService), async (c) => {
   const db = getDb(c)
   const providerId = c.get('providerId')!
@@ -134,7 +123,6 @@ providers.patch('/me/services/:id', zValidator('json', UpdateProviderService), a
   return success(c, updated)
 })
 
-// DELETE /providers/me/services/:id (soft: set isActive=false)
 providers.delete('/me/services/:id', async (c) => {
   const db = getDb(c)
   const providerId = c.get('providerId')!

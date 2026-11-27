@@ -2,8 +2,6 @@ import { z } from 'zod'
 import { BOOKING_STATUSES } from '@poruch/types'
 import { PhoneSchema, EmailSchema } from './common.js'
 
-// === Create Booking ===
-
 export const CreateBooking = z.object({
   providerId: z.string().uuid(),
   serviceId: z.string().uuid(),
@@ -19,8 +17,6 @@ export const CreateBooking = z.object({
 
 export type CreateBooking = z.infer<typeof CreateBooking>
 
-// === Confirm Booking ===
-
 export const ConfirmBooking = z.object({
   confirmedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   confirmedTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
@@ -28,15 +24,11 @@ export const ConfirmBooking = z.object({
 
 export type ConfirmBooking = z.infer<typeof ConfirmBooking>
 
-// === Decline Booking ===
-
 export const DeclineBooking = z.object({
   reason: z.string().max(500).optional(),
 })
 
 export type DeclineBooking = z.infer<typeof DeclineBooking>
-
-// === Propose Alternative ===
 
 export const ProposeBooking = z.object({
   proposedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -46,15 +38,11 @@ export const ProposeBooking = z.object({
 
 export type ProposeBooking = z.infer<typeof ProposeBooking>
 
-// === Cancel Booking ===
-
 export const CancelBooking = z.object({
   reason: z.string().max(500).optional(),
 })
 
 export type CancelBooking = z.infer<typeof CancelBooking>
-
-// === Booking Response ===
 
 export const BookingResponse = z.object({
   id: z.string().uuid(),
@@ -77,8 +65,6 @@ export const BookingResponse = z.object({
 })
 
 export type BookingResponse = z.infer<typeof BookingResponse>
-
-// === Booking List Query ===
 
 export const BookingListQuery = z.object({
   status: z.enum(BOOKING_STATUSES).optional(),

@@ -8,16 +8,12 @@ import { reviews } from './reviews'
 import { mediaAssets } from './media'
 import { notifications } from './notifications'
 
-// === Users ===
-
 export const usersRelations = relations(users, ({ one }) => ({
   providerProfile: one(providerProfiles, {
     fields: [users.id],
     references: [providerProfiles.userId],
   }),
 }))
-
-// === Categories ===
 
 export const serviceCategoriesRelations = relations(serviceCategories, ({ many }) => ({
   providers: many(providerProfiles),
@@ -35,8 +31,6 @@ export const districtsRelations = relations(districts, ({ one, many }) => ({
   }),
   serviceAreas: many(serviceAreas),
 }))
-
-// === Provider ===
 
 export const providerProfilesRelations = relations(providerProfiles, ({ one, many }) => ({
   user: one(users, {
@@ -78,8 +72,6 @@ export const serviceAreasRelations = relations(serviceAreas, ({ one }) => ({
   }),
 }))
 
-// === Calendar ===
-
 export const workingHoursRelations = relations(workingHours, ({ one }) => ({
   provider: one(providerProfiles, {
     fields: [workingHours.providerId],
@@ -93,8 +85,6 @@ export const availabilityExceptionsRelations = relations(availabilityExceptions,
     references: [providerProfiles.id],
   }),
 }))
-
-// === Bookings ===
 
 export const clientContactsRelations = relations(clientContacts, ({ many }) => ({
   bookings: many(bookingRequests),
@@ -126,8 +116,6 @@ export const bookingStatusHistoryRelations = relations(bookingStatusHistory, ({ 
   }),
 }))
 
-// === Reviews ===
-
 export const reviewsRelations = relations(reviews, ({ one }) => ({
   booking: one(bookingRequests, {
     fields: [reviews.bookingId],
@@ -143,16 +131,12 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
   }),
 }))
 
-// === Media ===
-
 export const mediaAssetsRelations = relations(mediaAssets, ({ one }) => ({
   provider: one(providerProfiles, {
     fields: [mediaAssets.providerId],
     references: [providerProfiles.id],
   }),
 }))
-
-// === Notifications ===
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   booking: one(bookingRequests, {

@@ -15,7 +15,7 @@ export const reviews = pgTable(
     clientContactId: uuid('client_contact_id')
       .references(() => clientContacts.id)
       .notNull(),
-    rating: integer('rating').notNull(), // 1-5
+    rating: integer('rating').notNull(),
     comment: text('comment'),
     isPublished: boolean('is_published').notNull().default(true),
     providerReply: text('provider_reply'),

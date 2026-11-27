@@ -9,9 +9,9 @@ export const workingHours = pgTable(
     providerId: uuid('provider_id')
       .references(() => providerProfiles.id, { onDelete: 'cascade' })
       .notNull(),
-    dayOfWeek: integer('day_of_week').notNull(), // 0=Sunday, 6=Saturday
-    startTime: varchar('start_time', { length: 5 }).notNull(), // HH:MM
-    endTime: varchar('end_time', { length: 5 }).notNull(), // HH:MM
+    dayOfWeek: integer('day_of_week').notNull(),
+    startTime: varchar('start_time', { length: 5 }).notNull(),
+    endTime: varchar('end_time', { length: 5 }).notNull(),
     isActive: boolean('is_active').notNull().default(true),
   },
   (table) => [
@@ -27,11 +27,11 @@ export const availabilityExceptions = pgTable(
     providerId: uuid('provider_id')
       .references(() => providerProfiles.id, { onDelete: 'cascade' })
       .notNull(),
-    date: varchar('date', { length: 10 }).notNull(), // YYYY-MM-DD
+    date: varchar('date', { length: 10 }).notNull(),
     exceptionType: exceptionTypeEnum('exception_type').notNull(),
     isAvailable: boolean('is_available').notNull(),
-    startTime: varchar('start_time', { length: 5 }), // HH:MM, for custom_hours
-    endTime: varchar('end_time', { length: 5 }), // HH:MM, for custom_hours
+    startTime: varchar('start_time', { length: 5 }),
+    endTime: varchar('end_time', { length: 5 }),
     reason: varchar('reason', { length: 200 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },

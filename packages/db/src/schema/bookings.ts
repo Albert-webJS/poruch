@@ -9,7 +9,7 @@ export const clientContacts = pgTable(
     phone: varchar('phone', { length: 20 }).notNull(),
     email: varchar('email', { length: 255 }),
     name: varchar('name', { length: 200 }).notNull(),
-    userId: uuid('user_id'), // linked later if client creates account
+    userId: uuid('user_id'),
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -34,15 +34,12 @@ export const bookingRequests = pgTable(
       .notNull(),
     status: bookingStatusEnum('status').notNull().default('pending'),
 
-    // requested by client
-    preferredDate: varchar('preferred_date', { length: 10 }).notNull(), // YYYY-MM-DD
-    preferredTime: varchar('preferred_time', { length: 5 }).notNull(), // HH:MM
+    preferredDate: varchar('preferred_date', { length: 10 }).notNull(),
+    preferredTime: varchar('preferred_time', { length: 5 }).notNull(),
 
-    // set by provider on confirm
     confirmedDate: varchar('confirmed_date', { length: 10 }),
     confirmedTime: varchar('confirmed_time', { length: 5 }),
 
-    // set by provider on propose
     proposedDate: varchar('proposed_date', { length: 10 }),
     proposedTime: varchar('proposed_time', { length: 5 }),
     proposedMessage: text('proposed_message'),
@@ -52,16 +49,12 @@ export const bookingRequests = pgTable(
     declineReason: text('decline_reason'),
     cancelReason: text('cancel_reason'),
 
-    // access token for client (no account needed)
     accessToken: varchar('access_token', { length: 64 }).unique().notNull(),
 
-    // idempotency
     idempotencyKey: varchar('idempotency_key', { length: 36 }).unique(),
 
-    // optimistic locking
     version: integer('version').notNull().default(1),
 
-    // expiration
     expiresAt: timestamp('expires_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -85,7 +78,7 @@ export const bookingStatusHistory = pgTable(
       .notNull(),
     previousStatus: bookingStatusEnum('previous_status').notNull(),
     newStatus: bookingStatusEnum('new_status').notNull(),
-    changedBy: varchar('changed_by', { length: 255 }).notNull(), // userId or 'system'
+    changedBy: varchar('changed_by', { length: 255 }).notNull(),
     reason: text('reason'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },

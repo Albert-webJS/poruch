@@ -11,12 +11,10 @@ export default async function Home() {
   try {
     ;[categories, providers] = await Promise.all([api.getCategories(), api.getProviders()])
   } catch {
-    // API not available during build
   }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      {/* Hero + Search */}
       <section className="mb-10">
         <h1 className="text-3xl md:text-4xl font-extrabold text-ocean-900 mb-2">
           Знайдіть перевіреного майстра поруч
@@ -27,7 +25,6 @@ export default async function Home() {
         <SearchBar categories={categories} />
       </section>
 
-      {/* Categories */}
       <section className="mb-10">
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {categories.map((cat) => (
@@ -43,7 +40,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Recommended providers */}
       <section>
         <h2 className="text-xl font-bold text-ocean-900 mb-4">Рекомендовані майстри</h2>
         {providers.length > 0 ? (

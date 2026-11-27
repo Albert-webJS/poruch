@@ -37,7 +37,6 @@ async function Header() {
   try {
     cities = await api.getCities()
   } catch {
-    // API not available during build
   }
 
   return (

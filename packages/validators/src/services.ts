@@ -1,8 +1,6 @@
 import { z } from 'zod'
 import { PRICE_TYPES } from '@poruch/types'
 
-// === Create / Update Service ===
-
 export const CreateProviderService = z.object({
   name: z.string().min(2).max(200),
   description: z.string().max(1000).optional(),
@@ -16,8 +14,6 @@ export type CreateProviderService = z.infer<typeof CreateProviderService>
 export const UpdateProviderService = CreateProviderService.partial()
 
 export type UpdateProviderService = z.infer<typeof UpdateProviderService>
-
-// === Validation rules ===
 
 export function validatePriceConsistency(priceType: string, priceAmount: number | null): boolean {
   if (priceType === 'on_request') return priceAmount === null

@@ -11,6 +11,7 @@ import {
   serviceCategories,
   cities,
   districts,
+  workingHours,
 } from './schema'
 
 async function seedDemo() {
@@ -20,7 +21,6 @@ async function seedDemo() {
   const sql = neon(url)
   const db = drizzle(sql)
 
-  // Get existing categories and cities
   const [electricians] = await db.select().from(serviceCategories).where(eq(serviceCategories.slug, 'electricians'))
   const [plumbers] = await db.select().from(serviceCategories).where(eq(serviceCategories.slug, 'plumbers'))
   const [kyiv] = await db.select().from(cities).where(eq(cities.slug, 'kyiv'))
@@ -28,7 +28,6 @@ async function seedDemo() {
   const kyivDistricts = await db.select().from(districts).where(eq(districts.cityId, kyiv.id))
   const irpinDistricts = await db.select().from(districts).where(eq(districts.cityId, irpin.id))
 
-  // Create demo users
   console.log('Creating demo users...')
   const demoUsers = await db
     .insert(users)
@@ -41,7 +40,6 @@ async function seedDemo() {
 
   console.log(`  ✓ ${demoUsers.length} користувачів`)
 
-  // Create provider profiles
   console.log('Creating provider profiles...')
   const [oleksandr] = await db
     .insert(providerProfiles)
@@ -90,7 +88,6 @@ async function seedDemo() {
 
   console.log(`  ✓ Олександр, Ірина, Микола`)
 
-  // Services
   console.log('Creating services...')
   await db.insert(providerServices).values([
     { providerId: oleksandr.id, name: 'Встановлення розетки', priceType: 'fixed' as const, priceAmount: 350, durationMinutes: 30, sortOrder: 1 },
@@ -109,23 +106,32 @@ async function seedDemo() {
   ])
   console.log(`  ✓ 11 послуг`)
 
-  // Service areas
   console.log('Creating service areas...')
   await db.insert(serviceAreas).values([
-    // Oleksandr — Obolonskyi, Podilskyi, Shevchenkivskyi
     { providerId: oleksandr.id, districtId: kyivDistricts[4].id },
     { providerId: oleksandr.id, districtId: kyivDistricts[6].id },
     { providerId: oleksandr.id, districtId: kyivDistricts[9].id },
-    // Iryna — Pecherskyi, Holosiivskyi, Solomianskyi
     { providerId: iryna.id, districtId: kyivDistricts[5].id },
     { providerId: iryna.id, districtId: kyivDistricts[0].id },
     { providerId: iryna.id, districtId: kyivDistricts[8].id },
-    // Mykola — all Irpin districts
     ...irpinDistricts.map((d) => ({ providerId: mykola.id, districtId: d.id })),
   ])
   console.log(`  ✓ Зони обслуговування`)
 
-  // Demo client contacts for reviews
+  console.log('Creating working hours...')
+  const weekdayHours = [1, 2, 3, 4, 5].map((day) => ({ dayOfWeek: day, startTime: '09:00', endTime: '18:00' }))
+  const saturdayHours = { dayOfWeek: 6, startTime: '10:00', endTime: '15:00' }
+
+  await db.insert(workingHours).values([
+    ...weekdayHours.map((h) => ({ ...h, providerId: oleksandr.id })),
+    { ...saturdayHours, providerId: oleksandr.id },
+    ...weekdayHours.map((h) => ({ ...h, providerId: iryna.id })),
+    { ...saturdayHours, providerId: iryna.id },
+    ...weekdayHours.map((h) => ({ ...h, providerId: mykola.id })),
+    { ...saturdayHours, providerId: mykola.id },
+  ])
+  console.log('  ✓ Робочі години (Пн-Пт 09:00-18:00, Сб 10:00-15:00)')
+
   console.log('Creating reviews...')
   const demoClients = await db
     .insert(clientContacts)
@@ -139,16 +145,13 @@ async function seedDemo() {
     .returning()
 
   await db.insert(reviews).values([
-    // Oleksandr — 4 reviews
     { providerId: oleksandr.id, clientContactId: demoClients[0].id, rating: 5, comment: 'Дуже швидко замінив розетку, все працює ідеально. Рекомендую!', isPublished: true },
     { providerId: oleksandr.id, clientContactId: demoClients[1].id, rating: 5, comment: 'Професійно зробив проводку в новобудові. Акуратний і пунктуальний.', isPublished: true, providerReply: 'Дякую за довіру! Звертайтесь.' },
     { providerId: oleksandr.id, clientContactId: demoClients[2].id, rating: 4, comment: 'Добре зробив роботу, але трохи запізнився.', isPublished: true },
     { providerId: oleksandr.id, clientContactId: demoClients[3].id, rating: 5, comment: 'Відмінний електрик! Вже вдруге звертаємось.', isPublished: true },
-    // Iryna — 3 reviews
     { providerId: iryna.id, clientContactId: demoClients[0].id, rating: 5, comment: 'Нарешті знайшла хорошого сантехніка! Все зробила чисто і якісно.', isPublished: true },
     { providerId: iryna.id, clientContactId: demoClients[4].id, rating: 4, comment: 'Швидко усунула протікання. Ціна адекватна.', isPublished: true },
     { providerId: iryna.id, clientContactId: demoClients[2].id, rating: 5, comment: 'Встановила змішувач за годину. Супер!', isPublished: true },
-    // Mykola — 2 reviews
     { providerId: mykola.id, clientContactId: demoClients[1].id, rating: 5, comment: 'Зробив всю електрику в будинку. Якість на вищому рівні.', isPublished: true },
     { providerId: mykola.id, clientContactId: demoClients[3].id, rating: 5, comment: 'Швидко, якісно, з гарантією. Однозначно рекомендую!', isPublished: true },
   ])

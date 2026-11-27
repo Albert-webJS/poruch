@@ -38,12 +38,10 @@ export default async function CategoryPage({ params, searchParams }: Props) {
 
     providers = await api.getProviders({ category: slug, city })
   } catch {
-    // API not available
   }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      {/* Breadcrumb */}
       <nav className="text-sm text-ocean-500 mb-6">
         <Link href="/" className="hover:text-ocean-700 transition-colors">
           Головна

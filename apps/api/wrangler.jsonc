@@ -3,6 +3,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  "dev": { "ip": "0.0.0.0", "port": 8787 },
 
   // Uncomment after creating resources:
   // "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<wrangler hyperdrive create poruch-db --connection-string=...>" }],

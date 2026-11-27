@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-// === Create / Update Provider Profile ===
-
 export const CreateProviderProfile = z.object({
   name: z.string().min(2).max(100),
   categoryId: z.string().uuid(),
@@ -23,8 +21,6 @@ export const UpdateProviderProfile = z.object({
 
 export type UpdateProviderProfile = z.infer<typeof UpdateProviderProfile>
 
-// === Provider Response ===
-
 export const ProviderResponse = z.object({
   id: z.string().uuid(),
   slug: z.string(),
@@ -40,8 +36,6 @@ export const ProviderResponse = z.object({
 })
 
 export type ProviderResponse = z.infer<typeof ProviderResponse>
-
-// === Public Provider (for /p/[slug]) ===
 
 export const PublicProviderResponse = z.object({
   id: z.string().uuid(),

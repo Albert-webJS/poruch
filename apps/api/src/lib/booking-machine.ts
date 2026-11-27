@@ -19,7 +19,6 @@ export function getExpiresAt(status: BookingStatus, responseTimeHours: number): 
     return new Date(Date.now() + responseTimeHours * 60 * 60 * 1000)
   }
   if (status === 'proposed') {
-    // Client has 24 hours to respond to proposal
     return new Date(Date.now() + 24 * 60 * 60 * 1000)
   }
   return null
